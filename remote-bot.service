@@ -1,0 +1,18 @@
+[Unit]
+Description=Telegram Remote Control Bot (User Service)
+PartOf=graphical-session.target
+After=graphical-session.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/remote_bot
+ExecStart=%h/remote_bot/venv/bin/python %h/remote_bot/bot.py
+Restart=always
+RestartSec=5
+Environment=DISPLAY=:0
+Environment=WAYLAND_DISPLAY=wayland-0
+Environment=XDG_CURRENT_DESKTOP=ubuntu:GNOME
+
+[Install]
+WantedBy=default.target

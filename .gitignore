@@ -1,0 +1,92 @@
+# ==============================================================================
+# 1. MAXFIY MA'LUMOTLAR VA SOZLAMALAR (Security & Secrets)
+# ==============================================================================
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# ==============================================================================
+# 2. VIRTUAL MUHITLAR (Virtual Environments)
+# ==============================================================================
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+bin/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# ==============================================================================
+# 3. PYTHON CACHE VA BYTECODE
+# ==============================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+
+# ==============================================================================
+# 4. BOT MA'LUMOTLARI, LOGLAR VA VAQTINCHALIK FAYLLAR
+# ==============================================================================
+*.log
+remote_bot.log
+logs/
+daily_stats.json
+daily_stats.json.bak
+*.json.bak
+*.db
+*.sqlite
+*.sqlite3
+cam_shot_*.jpg
+/tmp/
+*.tmp
+
+# ==============================================================================
+# 5. MUHARRIRLAR VA IDE SOZLAMALARI (IDEs & Editors)
+# ==============================================================================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+
+# ==============================================================================
+# 6. OPERATSION TIZIM FAYLLARI (OS Specific)
+# ==============================================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ==============================================================================
+# 7. TEST VA PROFILING
+# ==============================================================================
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+nosetests.xml
+coverage.xml
+*.cover
