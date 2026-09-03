@@ -168,7 +168,6 @@ music_inline_kb = InlineKeyboardMarkup(
             InlineKeyboardButton(text="⏭ Keyingi", callback_data="mus_next"),
         ],
         [
-            InlineKeyboardButton(text="🟢 Spotify'ni Ochish", callback_data="mus_open_spotify"),
             InlineKeyboardButton(text="🔄 Yangilash", callback_data="mus_refresh"),
         ]
     ]
@@ -470,15 +469,11 @@ def _sync_run_volume_action(arg: str) -> str:
 
     vol = _sync_get_volume_percent()
     muted = _sync_is_muted()
-    text = (
-        "🔊 <b>Ovoz Boshqaruvi</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━\n"
-        f"🔈 <b>Joriy daraja:</b> <b>{vol}</b>"
+    muted_str = " <i>(O'chirilgan 🔇)</i>" if muted else ""
+    return (
+        "🔊 <b>Ovoz Boshqaruvi</b>\n\n"
+        f"🔈 <b>Joriy daraja:</b> <b>{vol}</b>{muted_str}"
     )
-    if muted:
-        text += " (O'chirilgan 🔇)"
-    text += "\n━━━━━━━━━━━━━━━━━━━━━"
-    return text
 
 
 async def run_volume_action(arg: str) -> str:
@@ -697,18 +692,15 @@ async def build_status_view() -> Tuple[str, InlineKeyboardMarkup]:
     ram_bar = make_progress_bar(ram)
 
     text = (
-        "🖥 <b>TIZIM MONITORINGI</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━\n"
-        f"⚡️ <b>CPU:</b> <code>{cpu_bar}</code> <b>{cpu}%</b>\n"
-        f"🧠 <b>RAM:</b> <code>{ram_bar}</code> <b>{ram}%</b>\n"
+        f"🖥 <b>Tizim Holati</b> • <code>{device_name}</code>\n\n"
+        f"⚡️ <b>CPU:</b> <code>{cpu_bar}</code> {cpu}%\n"
+        f"🧠 <b>RAM:</b> <code>{ram_bar}</code> {ram}%\n"
         f"🔋 <b>Batareya:</b> {bat_text}\n"
-        f"💽 <b>Disk:</b> <b>{disk_percent}%</b> band <i>({free_gb:.1f} GB bo'sh)</i>\n"
-        f"📶 <b>Tarmoq:</b> <code>{wifi_name}</code>\n"
+        f"💽 <b>Disk:</b> {disk_percent}% band <i>({free_gb:.1f} GB bo'sh)</i>\n"
+        f"📶 <b>Wi-Fi:</b> <code>{wifi_name}</code>\n"
         f"🔊 <b>Ovoz:</b> {volume_text}\n"
-        f"📱 <b>Hozir ochiq:</b> <b>{current_app}</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━\n"
-        f"💻 <i>Qurilma: {device_name}</i>\n"
-        f"🕒 <i>Yangilangan: {now_str}</i>"
+        f"📱 <b>Faol oyna:</b> <b>{current_app}</b>\n\n"
+        f"🕒 <i>Yangilandi: {now_str}</i>"
     )
 
     return text, status_inline_kb
@@ -757,16 +749,13 @@ def build_daily_report_text(stats_dict: Optional[Dict[str, Any]] = None) -> str:
     device_name = get_device_name()
 
     return (
-        f"📊 <b>KUNLIK FOYDALANISH HISOBOTI</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━\n"
-        f"🗓 <b>Sana:</b> <code>{date_str}</code>\n"
+        f"📊 <b>Kunlik Foydalanish Hisoboti</b>\n"
+        f"🗓 <i>{date_str}</i> • <code>{device_name}</code>\n\n"
         f"⏱ <b>Umumiy faol vaqt:</b> <b>{hours} soat {minutes} daqiqa</b>\n"
         f"🔋 <b>Batareya dinamikasi:</b> {start_percent}% ➔ {current_percent}% "
         f"<i>(min: {min_percent}%, max: {max_percent}%)</i>\n\n"
         f"📱 <b>Eng ko'p ishlatilgan ilovalar:</b>\n"
-        f"{apps_text}\n"
-        "━━━━━━━━━━━━━━━━━━━━━\n"
-        f"💻 <i>{device_name} • Avtomatik hisobot</i>"
+        f"{apps_text}"
     )
 
 
@@ -836,13 +825,165 @@ async def lock_screen():
     await asyncio.to_thread(_sync_lock_screen)
 
 
-def _sync_send_notification(text: str):
+def _sync_send_notification(text: str, title: str = "Bildirishnoma"):
     env = get_wayland_env()
-    subprocess.run(["notify-send", "-u", "critical", "--", "Telegram Xabari", text], env=env, timeout=3, check=True)
+    try:
+        subprocess.run(
+            ["notify-send", "-a", "Bildirishnoma", "-u", "critical", "-i", "dialog-information", "--", title, text],
+            env=env,
+            timeout=3,
+            check=True
+        )
+    except Exception as e:
+        logger.error(f"Bildirishnoma yuborishda xato: {e}")
 
 
-async def send_desktop_notification(text: str):
-    await asyncio.to_thread(_sync_send_notification, text)
+async def send_desktop_notification(text: str, title: str = "Bildirishnoma"):
+    await asyncio.to_thread(_sync_send_notification, text, title)
+
+
+def _sync_shutdown() -> bool:
+    env = get_wayland_env()
+    logger.info("Noutbukni o'chirish buyrug'i bajarilmoqda...")
+
+    # 1. loginctl poweroff -i (Eng to'g'ri va ishonchli usul, inhibitorlarni chetlab o'tadi)
+    try:
+        res = subprocess.run(["loginctl", "poweroff", "-i", "--no-ask-password"], env=env, timeout=3)
+        if res.returncode == 0:
+            logger.info("loginctl poweroff muvaffaqiyatli bajarildi.")
+            return True
+    except Exception as e:
+        logger.warning(f"loginctl poweroff xatosi: {e}")
+
+    # 2. D-Bus login1 Manager.PowerOff
+    try:
+        res = subprocess.run(
+            [
+                "dbus-send", "--system", "--print-reply",
+                "--dest=org.freedesktop.login1",
+                "/org/freedesktop/login1",
+                "org.freedesktop.login1.Manager.PowerOff",
+                "boolean:true"
+            ],
+            timeout=3
+        )
+        if res.returncode == 0:
+            logger.info("D-Bus login1 PowerOff muvaffaqiyatli bajarildi.")
+            return True
+    except Exception as e:
+        logger.warning(f"D-Bus login1 PowerOff xatosi: {e}")
+
+    # 3. systemctl poweroff -i
+    try:
+        res = subprocess.run(["systemctl", "poweroff", "-i", "--no-ask-password"], env=env, timeout=3)
+        if res.returncode == 0:
+            logger.info("systemctl poweroff muvaffaqiyatli bajarildi.")
+            return True
+    except Exception as e:
+        logger.warning(f"systemctl poweroff xatosi: {e}")
+
+    # 4. GNOME SessionManager Shutdown
+    try:
+        res = subprocess.run(
+            [
+                "gdbus", "call", "--session",
+                "--dest", "org.gnome.SessionManager",
+                "--object-path", "/org/gnome/SessionManager",
+                "--method", "org.gnome.SessionManager.Shutdown"
+            ],
+            env=env,
+            timeout=3
+        )
+        if res.returncode == 0:
+            logger.info("GNOME SessionManager Shutdown muvaffaqiyatli bajarildi.")
+            return True
+    except Exception as e:
+        logger.warning(f"GNOME SessionManager Shutdown xatosi: {e}")
+
+    # 5. shutdown -h now
+    try:
+        subprocess.Popen(["shutdown", "-h", "now"], env=env)
+        return True
+    except Exception:
+        pass
+
+    return False
+
+
+async def execute_shutdown():
+    await asyncio.to_thread(_sync_shutdown)
+
+
+def _sync_reboot() -> bool:
+    env = get_wayland_env()
+    logger.info("Noutbukni qayta yoqish buyrug'i bajarilmoqda...")
+
+    # 1. loginctl reboot -i
+    try:
+        res = subprocess.run(["loginctl", "reboot", "-i", "--no-ask-password"], env=env, timeout=3)
+        if res.returncode == 0:
+            logger.info("loginctl reboot muvaffaqiyatli bajarildi.")
+            return True
+    except Exception as e:
+        logger.warning(f"loginctl reboot xatosi: {e}")
+
+    # 2. D-Bus login1 Manager.Reboot
+    try:
+        res = subprocess.run(
+            [
+                "dbus-send", "--system", "--print-reply",
+                "--dest=org.freedesktop.login1",
+                "/org/freedesktop/login1",
+                "org.freedesktop.login1.Manager.Reboot",
+                "boolean:true"
+            ],
+            timeout=3
+        )
+        if res.returncode == 0:
+            logger.info("D-Bus login1 Reboot muvaffaqiyatli bajarildi.")
+            return True
+    except Exception as e:
+        logger.warning(f"D-Bus login1 Reboot xatosi: {e}")
+
+    # 3. systemctl reboot -i
+    try:
+        res = subprocess.run(["systemctl", "reboot", "-i", "--no-ask-password"], env=env, timeout=3)
+        if res.returncode == 0:
+            logger.info("systemctl reboot muvaffaqiyatli bajarildi.")
+            return True
+    except Exception as e:
+        logger.warning(f"systemctl reboot xatosi: {e}")
+
+    # 4. GNOME SessionManager Reboot
+    try:
+        res = subprocess.run(
+            [
+                "gdbus", "call", "--session",
+                "--dest", "org.gnome.SessionManager",
+                "--object-path", "/org/gnome/SessionManager",
+                "--method", "org.gnome.SessionManager.Reboot"
+            ],
+            env=env,
+            timeout=3
+        )
+        if res.returncode == 0:
+            logger.info("GNOME SessionManager Reboot muvaffaqiyatli bajarildi.")
+            return True
+    except Exception as e:
+        logger.warning(f"GNOME SessionManager Reboot xatosi: {e}")
+
+    # 5. reboot
+    try:
+        subprocess.Popen(["reboot"], env=env)
+        return True
+    except Exception:
+        pass
+
+    return False
+
+
+async def execute_reboot():
+    await asyncio.to_thread(_sync_reboot)
 
 
 
@@ -1106,7 +1247,7 @@ async def build_music_view() -> Tuple[str, InlineKeyboardMarkup]:
         if title:
             meta_lines.append(f"🎧 <b>Trek:</b> <b>{title}</b>")
         if artist:
-            meta_lines.append(f"👤 <b>Ijrochi:</b> <b>{artist}</b>")
+            meta_lines.append(f"👤 <b>Ijrochi:</b> {artist}")
         if album:
             meta_lines.append(f"💿 <b>Albom:</b> {album}")
         meta_lines.append(f"📊 <b>Holat:</b> {status}")
@@ -1115,16 +1256,11 @@ async def build_music_view() -> Tuple[str, InlineKeyboardMarkup]:
         meta_text = "\n".join(meta_lines)
     else:
         meta_text = (
-            "🎧 <b>Ayni paytda faol musiqa ijro etilmayapti.</b>\n\n"
-            "💡 <i>Noutbukingizda <b>Spotify</b> yoki veb-pleyerini ishga tushirish uchun quyidagi tugmani bosing:</i>"
+            "🎧 <i>Ayni paytda faol musiqa ijro etilmayapti.</i>\n\n"
+            "💡 <i>Noutbukda Spotify dasturini ishga tushirish uchun quyidagi tugmani bosing:</i>"
         )
 
-    text = (
-        f"{header_title}\n"
-        "━━━━━━━━━━━━━━━━━━━━━\n"
-        f"{meta_text}\n"
-        "━━━━━━━━━━━━━━━━━━━━━"
-    )
+    text = f"{header_title}\n\n{meta_text}"
     return text, music_inline_kb
 
 
@@ -1155,9 +1291,8 @@ async def cmd_start(message: types.Message):
     logger.info("Admin /start buyrug'ini yubordi.")
     await message.answer(
         "🤖 <b>Masofaviy Boshqaruv Markazi</b>\n"
-        f"💻 <b>Qurilma:</b> <code>{device_name}</code>\n"
-        "━━━━━━━━━━━━━━━━━━━━━\n"
-        "Noutbukingizni nazorat qilish va buyruqlar berish uchun quyidagi menyudan foydalaning 👇",
+        f"💻 <b>Qurilma:</b> <code>{device_name}</code>\n\n"
+        "Noutbukingizni nazorat qilish va boshqarish uchun menyudan foydalaning 👇",
         parse_mode="HTML",
         reply_markup=main_menu,
     )
@@ -1226,29 +1361,24 @@ async def callback_quick_photo(callback: CallbackQuery):
 @dp.message(Command("music", "spotify"))
 @dp.message(F.text.in_({"🎵 Spotify", "Spotify", "🎵 Musiqa", "🎵 Musiqa (Spotify)", "Musiqa", "/music", "/spotify"}))
 async def cmd_music(message: types.Message):
-    logger.info(f"Admin Musiqa/Spotify bo'limiga kirdi. (Xabar: '{message.text}')")
+    logger.info(f"Admin Spotify bo'limiga kirdi. (Xabar: '{message.text}')")
+    asyncio.create_task(open_spotify())
+    await asyncio.sleep(0.3)
     try:
         text, kb = await build_music_view()
         await message.answer(text, parse_mode="HTML", reply_markup=kb)
     except Exception as e:
         logger.error(f"cmd_music xatosi: {e}")
-        await message.answer("🎵 <b>Spotify Boshqaruvi</b>\n\nQuyidagi tugmalardan foydalaning 👇", parse_mode="HTML", reply_markup=music_inline_kb)
+        await message.answer("🟢 <b>Spotify Boshqaruvi</b>\n\nSpotify noutbukda ochilmoqda...", parse_mode="HTML", reply_markup=music_inline_kb)
 
 
 @dp.callback_query(F.data == "quick_music")
 async def callback_quick_music(callback: CallbackQuery):
+    asyncio.create_task(open_spotify())
+    await asyncio.sleep(0.3)
     text, kb = await build_music_view()
     await callback.message.answer(text, parse_mode="HTML", reply_markup=kb)
-    await callback.answer()
-
-
-@dp.callback_query(F.data == "mus_open_spotify")
-async def callback_mus_open_spotify(callback: CallbackQuery):
-    success = await open_spotify()
-    if success:
-        await callback.answer("🟢 Noutbukda Spotify ochildi!", show_alert=True)
-    else:
-        await callback.answer("❌ Spotify ilovasini ochib bo'lmadi.", show_alert=True)
+    await callback.answer("🟢 Spotify ochilmoqda...")
 
 
 
@@ -1318,14 +1448,11 @@ async def notify_receive_text(message: types.Message, state: FSMContext):
 async def volume_button(message: types.Message):
     vol = await get_current_volume_percent()
     muted = await is_muted()
+    muted_str = " <i>(O'chirilgan 🔇)</i>" if muted else ""
     text = (
-        "🔊 <b>Ovoz Boshqaruvi</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━\n"
-        f"🔈 <b>Joriy daraja:</b> <b>{vol}</b>"
+        "🔊 <b>Ovoz Boshqaruvi</b>\n\n"
+        f"🔈 <b>Joriy daraja:</b> <b>{vol}</b>{muted_str}"
     )
-    if muted:
-        text += " (O'chirilgan 🔇)"
-    text += "\n━━━━━━━━━━━━━━━━━━━━━"
     await message.answer(text, parse_mode="HTML", reply_markup=volume_kb)
 
 
@@ -1345,8 +1472,7 @@ async def volume_callback(callback: CallbackQuery):
 @dp.message(F.text == "📋 Clipboard")
 async def clipboard_button(message: types.Message):
     await message.answer(
-        "📋 <b>Clipboard (Vaqtinchalik xotira)</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━\n"
+        "📋 <b>Vaqtinchalik Xotira (Clipboard)</b>\n\n"
         "Quyidagi amallardan birini tanlang:",
         parse_mode="HTML",
         reply_markup=clipboard_kb,
@@ -1408,21 +1534,21 @@ async def cmd_shutdown(message: types.Message):
 @dp.callback_query(F.data == "confirm_reboot")
 async def confirm_reboot(callback: CallbackQuery):
     await callback.message.edit_text("🔄 <b>Noutbuk qayta ishga tushirilmoqda...</b>", parse_mode="HTML")
-    await callback.answer()
+    await callback.answer("🔄 Qayta yoqilmoqda...")
     logger.info("Masofadan reboot buyrug'i berildi.")
     save_daily_stats()
-    await asyncio.sleep(1)
-    subprocess.Popen(["systemctl", "reboot"])
+    await asyncio.sleep(0.5)
+    asyncio.create_task(execute_reboot())
 
 
 @dp.callback_query(F.data == "confirm_shutdown")
 async def confirm_shutdown(callback: CallbackQuery):
-    await callback.message.edit_text("🛑 <b>Noutbuk o'chirilmoqda...</b>", parse_mode="HTML")
-    await callback.answer()
+    await callback.message.edit_text("🛑 <b>Noutbuk o'chirilmoqda... Xayr!</b>", parse_mode="HTML")
+    await callback.answer("🛑 O'chirilmoqda...")
     logger.info("Masofadan shutdown buyrug'i berildi.")
     save_daily_stats()
-    await asyncio.sleep(1)
-    subprocess.Popen(["systemctl", "poweroff"])
+    await asyncio.sleep(0.5)
+    asyncio.create_task(execute_shutdown())
 
 
 @dp.callback_query(F.data == "cancel")
@@ -1483,8 +1609,7 @@ async def app_tracker_loop():
                             await bot.send_message(
                                 chat_id=ADMIN_ID,
                                 text=(
-                                    "⚠️ <b>DIQQAT: Batareya quvvati kam!</b>\n"
-                                    "━━━━━━━━━━━━━━━━━━━━━\n"
+                                    "⚠️ <b>Batareya Quvvati Kam!</b>\n\n"
                                     f"🔋 Joriy quvvat: <b>{pct}%</b>\n"
                                     "Iltimos, qurilmangizni zaryadlashga ulang."
                                 ),
@@ -1544,14 +1669,12 @@ async def on_startup_notify():
     device_name = get_device_name()
 
     text = (
-        "🟢 <b>Qurilma Muvaffaqiyatli Yondi!</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━\n"
-        f"💻 <b>Qurilma:</b> <code>{device_name}</code>\n"
-        f"🔋 <b>Batareya:</b> <b>{bat_text}</b>\n"
-        f"📶 <b>Tarmoq:</b> <code>{wifi_name}</code>\n"
-        f"🕒 <b>Vaqt:</b> {boot_time}\n"
-        "━━━━━━━━━━━━━━━━━━━━━\n"
-        "<i>Boshqaruv uchun quyidagi menyudan foydalaning 👇</i>"
+        "🟢 <b>Noutbuk Ishga Tushdi</b>\n"
+        f"💻 <code>{device_name}</code>\n\n"
+        f"🔋 <b>Batareya:</b> {bat_text}\n"
+        f"📶 <b>Wi-Fi:</b> <code>{wifi_name}</code>\n"
+        f"🕒 <b>Vaqt:</b> {boot_time}\n\n"
+        "<i>Bot boshqaruvga tayyor 👇</i>"
     )
     try:
         await bot.send_message(chat_id=ADMIN_ID, text=text, parse_mode="HTML", reply_markup=main_menu)
