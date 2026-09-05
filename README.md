@@ -57,45 +57,67 @@ sudo apt install -y python3 python3-venv python3-pip \
 
 ---
 
-## 🛠 O'rnatish va Sozlash (Installation)
+## 🚀 1 Buyruqda Tezkor O'rnatish (Avtomatik)
 
-### 1. Loyihani yuklab oling:
+Loyihani yuklab oling va avtomatik o'rnatuvchi skriptni ishga tushiring:
+
 ```bash
 git clone https://github.com/USERNAME/remote_bot.git
 cd remote_bot
+bash install.sh
 ```
 
-### 2. Python virtual muhitini (venv) yarating va paketlarni o'rnating:
+Ushbu skript avtomatik ravishda:
+1. Kerakli tizim paketlarini o'rnatadi (`fswebcam`, `wl-clipboard`, `libnotify-bin`, `python3-venv` va h.k.);
+2. Python virtual muhitini (`venv`) yaratadi va kutubxonalarni o'rnatadi;
+3. `.env` konfiguratsiya faylini yaratadi va bot ma'lumotlarini so'raydi;
+4. `systemd --user` xizmatini sozlab, noutbuk yonganda avtomatik ishlaydigan qilib ishga tushiradi!
+
+---
+
+## 🎮 Botni Boshqarish (`manage.sh`)
+
+O'rnatilgandan so'ng botni boshqarish uchun qulay boshqaruv utility mavjud:
+
+```bash
+# Bot holatini ko'rish
+./manage.sh status
+
+# Jonli loglarni kuzatish (live logs)
+./manage.sh logs
+
+# Botni qayta ishga tushirish
+./manage.sh restart
+
+# Botni to'xtatish
+./manage.sh stop
+
+# Botni ishga tushirish
+./manage.sh start
+
+# Botni terminalda to'g'ridan-to'g'ri sinab ko'rish
+./manage.sh test
+```
+
+---
+
+## 🛠 Qo'lda O'rnatish (Manual Installation)
+
+### 1. Python virtual muhitini (venv) yarating va paketlarni o'rnating:
 ```bash
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 3. Konfiguratsiyani sozlang (`.env`):
+### 2. Konfiguratsiyani sozlang (`.env`):
 `.env.example` faylidan nusxa oling va oʻzingizning maʼlumotlaringizni kiriting:
 ```bash
 cp .env.example .env
 nano .env
 ```
 
-`.env` fayli namunasi:
-```ini
-# Telegram Bot Token (@BotFather orqali olingan)
-BOT_TOKEN=8930960513:AAFcGZfimSz3WtgEmsTc7iwj8rTQAUjLNY4
-
-# Sizning Telegram raqamli ID'ingiz (@userinfobot orqali olishingiz mumkin)
-ADMIN_ID=8200157886
-
-# Sozlamalar
-TIMEZONE=Asia/Tashkent
-TRACK_INTERVAL_SECONDS=60
-DAILY_REPORT_HOUR=23
-DAILY_REPORT_MINUTE=55
-LOW_BATTERY_THRESHOLD=20
-```
-
-### 4. Botni sinov tariqasida ishga tushiring:
+### 3. Botni sinov tariqasida ishga tushiring:
 ```bash
 python bot.py
 ```
